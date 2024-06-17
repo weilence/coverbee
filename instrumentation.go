@@ -203,7 +203,7 @@ func InstrumentCollection(coll *ebpf.CollectionSpec, logWriter io.Writer) ([]*Ba
 
 				funcProto, ok := progFunc.Type.(*btf.FuncProto)
 				if !ok {
-					return nil, fmt.Errorf("Func type for '%s' in '%s' is not a FuncProto", blockSym, name)
+					return nil, fmt.Errorf("func type for '%s' in '%s' is not a FuncProto", blockSym, name)
 				}
 
 				regCnt := len(funcProto.Params)
@@ -362,7 +362,13 @@ func InstrumentCollection(coll *ebpf.CollectionSpec, logWriter io.Writer) ([]*Ba
 
 			// Move the metadata from head of the original code to the instrumented block so jumps and function calls
 			// enter at the instrumented code first.
-			newProgram = append(newProgram, instr[0].WithMetadata(block.Block[0].Metadata))
+			newInstr := btf.WithFuncMetadata(
+				instr[0].WithReference(block.Block[0].Reference()).
+					WithSource(block.Block[0].Source()).
+					WithSymbol(block.Block[0].Symbol()),
+				btf.FuncMetadata(&block.Block[0]),
+			)
+			newProgram = append(newProgram, newInstr)
 			newProgram = append(newProgram, instr[1:]...)
 
 			// Remove the symbol and function metadata from the original start of the basic block since the symbol
@@ -532,7 +538,7 @@ func CFGToBlockList(cfg []*BasicBlock) [][]CoverBlock {
 				Filename: filepath.Clean(line.FileName()),
 				ProfileBlock: cover.ProfileBlock{
 					StartLine: int(line.LineNumber()),
-					StartCol:  2,
+					StartCol:  1,
 					EndLine:   int(line.LineNumber()),
 					EndCol:    2000,
 					NumStmt:   1,
